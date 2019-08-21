@@ -1,0 +1,22 @@
+version: '3'
+services:
+    server:
+        build:
+            context: .
+            dockerfile: docker/serverDockerfile
+        image: "tpserver"
+        ports:
+            - "9387:9387"
+    client:
+        build:
+            context: .
+            dockerfile: docker/clientDockerfile
+        image: "tpclient"
+        ports:
+            - "8288:8288"
+        volumes:
+            - .:/ports
+        environment:
+            PORTS_GRPC_HOST: server
+        depends_on:
+            - "server"

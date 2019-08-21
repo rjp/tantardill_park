@@ -1,0 +1,20 @@
+FROM golang:alpine AS build-env
+RUN apk update && apk add git && rm -rf /var/cache/apk/*
+ENV GOPATH /go
+WORKDIR /tantardill_park
+COPY go.mod .
+COPY go.sum .
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=386 go build ./cmd/tantardill_park_client
+RUN cp tantardill_park_client /go/bin/
+
+# final stage
+FROM alpine
+WORKDIR /
+RUN apk update && apk add ca-certificates file && rm -rf /var/cache/apk/*
+COPY --from=build-env /go/bin/tantardill_park_client /app
+RUN file /app
+RUN chmod 755 /app
+EXPOSE 8288
+CMD ["/app"]
