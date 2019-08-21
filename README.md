@@ -1,8 +1,14 @@
-# A minimicroservice cluster
+# A mini-micro-service cluster
+
+(The name, `tantardill_park` was suggested by a
+["Neural Network Placename Generator"](https://colinmorris.github.io/rbm/geo/))
 
 ## Summary
 
-Starting from no gRPC experience, with years old Docker knowledge, this was hard.
+Starting from no gRPC experience, with years old Docker knowledge, and only the
+vaguest whiff of Go modules, this was the hardest technical test I've done
+(and one of the previous was writing a spreadsheet in Perl with cell functions.)
+
 There's little testing of the business logic because there's basically nothing
 useful on the internet about how to test gRPC code without spinning everything
 up. However, I have added a small testing script which uses `docker-compose`
@@ -10,7 +16,8 @@ to spin everything up and run through a few simple tests of the basic functional
 
 The Docker files aren't optimised due to my code layout - because both the client
 and server depend on `portrpc/portrpc.pb.go`, they both tend to get rebuilt if
-anything changes.
+anything changes. It might have been better to split client and server into
+entirely distinct packages with their own repos and move `portrpc` into another.
 
 I'm using "shortcode" to mean "the 5 letter code the JSON file is keyed on".
 
