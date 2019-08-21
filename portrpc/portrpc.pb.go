@@ -304,8 +304,11 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type PortDatabaseClient interface {
+	// `PutPort` adds a single port to the database. Primary key is the shortcode.
 	PutPort(ctx context.Context, in *Port, opts ...grpc.CallOption) (*PutResponse, error)
+	// `GetPortByShortcode` returns a single port matching the given shortcode.
 	GetPortByShortcode(ctx context.Context, in *Shortcode, opts ...grpc.CallOption) (*Port, error)
+	// `GetShortcodes` returns a sorted list of all the known shortcodes.
 	GetShortcodes(ctx context.Context, in *GetShortcodesRequest, opts ...grpc.CallOption) (PortDatabase_GetShortcodesClient, error)
 }
 
@@ -369,8 +372,11 @@ func (x *portDatabaseGetShortcodesClient) Recv() (*Shortcode, error) {
 
 // PortDatabaseServer is the server API for PortDatabase service.
 type PortDatabaseServer interface {
+	// `PutPort` adds a single port to the database. Primary key is the shortcode.
 	PutPort(context.Context, *Port) (*PutResponse, error)
+	// `GetPortByShortcode` returns a single port matching the given shortcode.
 	GetPortByShortcode(context.Context, *Shortcode) (*Port, error)
+	// `GetShortcodes` returns a sorted list of all the known shortcodes.
 	GetShortcodes(*GetShortcodesRequest, PortDatabase_GetShortcodesServer) error
 }
 

@@ -5,8 +5,11 @@ package portrpc;
 // existing record (`PutPort`) and allow the client service
 // to 'retrieve the data' (`GetPortByShortcode`).
 service PortDatabase {
+    // `PutPort` adds a single port to the database. Primary key is the shortcode.
     rpc PutPort (Port) returns (PutResponse);
+    // `GetPortByShortcode` returns a single port matching the given shortcode.
     rpc GetPortByShortcode (Shortcode) returns (Port);
+    // `GetShortcodes` returns a sorted list of all the known shortcodes.
     rpc GetShortcodes (GetShortcodesRequest) returns (stream Shortcode);
 }
 
