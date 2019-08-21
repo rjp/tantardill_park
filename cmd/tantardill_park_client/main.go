@@ -36,7 +36,8 @@ func importJSONFromReader(f *os.File, client portrpc.PortDatabaseClient) {
 	dec := json.NewDecoder(f)
 
 	// Skip past the opening `{`
-	t, err := dec.Token()
+	_, err := dec.Token()
+
 	// Panic for now since if we can't parse the JSON, we're stuck anyway.
 	if err != nil {
 		panic(err)
@@ -68,13 +69,13 @@ func importJSONFromReader(f *os.File, client portrpc.PortDatabaseClient) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		ret, err := client.PutPort(ctx, &port)
+		// We don't care what we get back from this RPC call as long as there's
+		// no error.
+		// TODO Maybe implement some kind of "updated/inserted/deleted" response.
+		_, err = client.PutPort(ctx, &port)
 		if err != nil {
 			panic(err)
 		}
-
-		// TODO Convert this to `log` or something similar.
-		fmt.Printf("ret=%s key=%s port=%#v\n", ret.String(), t, port)
 	}
 }
 
@@ -136,6 +137,15 @@ func main() {
 		w.Write(encodedPort)
 	}
 
+	// If we call `/reload/`, reload the ports in `/ports/ports.json` and submit
+	// them to the database. This doesn't handle any missing ports (ie there's no
+	// way to remove one currently.)
+	reloadHandler := func(w http.ResponseWriter, req *http.Request) {
+		importJSON(client)
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{\"status\":\"OK\"}"))
+	}
+
 	// "First service(ClientAPI) should parse the JSON file"
 	// TODO: Add a file upload import API call to allow updates without having
 	// to restart the service (needs to store the uploaded file temporarily on
@@ -146,6 +156,7 @@ func main() {
 
 	// TODO Add more API calls for different queries.
 	http.HandleFunc("/shortcode/", shortcodeHandler)
+	http.HandleFunc("/reload/", reloadHandler)
 
 	// And begin.
 	_ = http.ListenAndServe(":8288", nil)
