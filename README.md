@@ -29,6 +29,14 @@ docker-compose up --build
 
 This gives you the client on `http://localhost:8288` loaded with `ports.json`.
 
+If you prefer, you can build the parts outside of Docker using the `Makefile`.
+That'll produce `client` and `server` binaries which do the exact same as they
+would if they were inside Docker containers.
+
+Both the client and server use the environment variable `PORTS_GRPC_PORT` to
+set their gRPC port number (defaults to 9387.) The client additionally uses
+`PORTS_GRPC_HOST` for the gRPC hostname of the server (defaults to `localhost`.)
+
 ## Server API
 
 ## PutPort
