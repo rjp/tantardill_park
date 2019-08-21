@@ -14,8 +14,6 @@ services:
         image: "tpclient"
         ports:
             - "8288:8288"
-        volumes:
-            - .:/ports
         environment:
             PORTS_GRPC_HOST: server
         depends_on:
