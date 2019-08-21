@@ -79,8 +79,20 @@ func importJSONFromReader(f *os.File, client portrpc.PortDatabaseClient) {
 }
 
 func main() {
-	// TODO Get this from flags
-	serverAddr := "127.0.0.1:9387"
+	// "III. Store config in the environment"
+	// This also helps running it in Docker since we can easily
+	// pass them when we're starting up a container.
+	tcpport := os.Getenv("PORTS_GRPC_PORT")
+	if tcpport == "" {
+		// Panic or default? Default is nicer for testing.
+		fmt.Println("Missing port, defaulting to 9387")
+		tcpport = "9387"
+	}
+	tcphost := os.Getenv("PORTS_GRPC_HOST")
+	if tcphost == "" {
+		tcphost = "127.0.0.1"
+	}
+	serverAddr := tcphost + ":" + tcpport
 
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	conn, err := grpc.Dial(serverAddr, opts...)
@@ -113,7 +125,7 @@ func main() {
 		}
 
 		// We probably want the data back as JSON since we're a REST(ish) API.
-		encodedPort, err := json.Marshal(feature)
+		encodedPort, err := json.Marshal(port)
 		if err != nil {
 			http.Error(w, "{\"error\":\"JSON marshalling failed\"}", http.StatusInternalServerError)
 			return
@@ -128,6 +140,8 @@ func main() {
 	// TODO: Add a file upload import API call to allow updates without having
 	// to restart the service (needs to store the uploaded file temporarily on
 	// disk which might be a problem with the constraints.)
+	// TODO: Or at least add an API call which forces a refresh of the JSON
+	// if it's held on an external volume to the Docker service.
 	importJSON(client)
 
 	// TODO Add more API calls for different queries.
