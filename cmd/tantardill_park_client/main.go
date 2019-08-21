@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -13,7 +14,7 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-// Import our JSON from a file
+// `importJSON` loads our port information from a fixed filename.
 // TODO Pass the filename as a parameter.
 func importJSON(client portrpc.PortDatabaseClient) {
 	f, err := os.Open("/ports/ports.json")
@@ -25,13 +26,14 @@ func importJSON(client portrpc.PortDatabaseClient) {
 	importJSONFromReader(f, client)
 }
 
-// Parse JSON from an `io.Reader` (actually an `os.File`) using the
+// `importJSONFromReader` parses JSON from an `os.File` using the
 // streaming decode method. This way we only ever have one `Port` model
 // alive at a time and should never consume a large amount of RAM.
 //
 // This is extracted from `importJSON` because I did originally try handling
 // multipart file upload as a method of import but that turned out to need
 // the file writing to disk and I'm not sure the constraints allow that.
+// But since we now have reload functionality, we can add new ports anyway.
 func importJSONFromReader(f *os.File, client portrpc.PortDatabaseClient) {
 	dec := json.NewDecoder(f)
 
@@ -79,24 +81,58 @@ func importJSONFromReader(f *os.File, client portrpc.PortDatabaseClient) {
 	}
 }
 
+// `fetchCodes` gets the list of shortcodes from the RPC server and
+// returns it as JSON.
+func fetchCodes(client portrpc.PortDatabaseClient) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	stream, err := client.GetShortcodes(ctx, &portrpc.GetShortcodesRequest{})
+	if err != nil {
+		return []string{}, err
+	}
+
+	codes := []string{}
+	for {
+		code, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return []string{}, err
+		}
+		codes = append(codes, code.Shortcode)
+	}
+
+	return codes, nil
+}
+
 func main() {
 	// "III. Store config in the environment"
 	// This also helps running it in Docker since we can easily
-	// pass them when we're starting up a container.
+	// pass them when we're starting up a container. Although
+	// we'd still need to expose them which makes life faffy.
 	tcpport := os.Getenv("PORTS_GRPC_PORT")
 	if tcpport == "" {
 		// Panic or default? Default is nicer for testing.
 		fmt.Println("Missing port, defaulting to 9387")
 		tcpport = "9387"
 	}
+	// Same for the hostname - this simplifies things when we
+	// spin both parts up using `docker-compose`.
 	tcphost := os.Getenv("PORTS_GRPC_HOST")
 	if tcphost == "" {
 		tcphost = "127.0.0.1"
 	}
 	serverAddr := tcphost + ":" + tcpport
 
+	// Not bothering with TLS here but a production server probably
+	// wants TLS with client certs to be secure.
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	conn, err := grpc.Dial(serverAddr, opts...)
+
+	// Simpler to `panic` here than work out some complicated retry
+	// scheme - let the supervisor handle that if we need it.
 	if err != nil {
 		panic(err)
 	}
@@ -139,24 +175,47 @@ func main() {
 
 	// If we call `/reload/`, reload the ports in `/ports/ports.json` and submit
 	// them to the database. This doesn't handle any missing ports (ie there's no
-	// way to remove one currently.)
+	// way to remove one currently.) (Again, a lambda to trap `client`.)
 	reloadHandler := func(w http.ResponseWriter, req *http.Request) {
 		importJSON(client)
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("{\"status\":\"OK\"}"))
 	}
 
+	// Lambda, etc. The error checking and JSON encoding from this and
+	// `shortcodeHandler` could be extracted and combined into a helper.
+	//
+	codesHandler := func(w http.ResponseWriter, req *http.Request) {
+		codes, err := fetchCodes(client)
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("{\"error\":\"NOTOK\"}"))
+			return
+		}
+
+		encodedCodes, err := json.Marshal(codes)
+		if err != nil {
+			http.Error(w, "{\"error\":\"JSON marshalling failed\"}", http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Write(encodedCodes)
+	}
+
 	// "First service(ClientAPI) should parse the JSON file"
 	// TODO: Add a file upload import API call to allow updates without having
 	// to restart the service (needs to store the uploaded file temporarily on
 	// disk which might be a problem with the constraints.)
-	// TODO: Or at least add an API call which forces a refresh of the JSON
+	// DONE: Or at least add an API call which forces a refresh of the JSON
 	// if it's held on an external volume to the Docker service.
 	importJSON(client)
 
-	// TODO Add more API calls for different queries.
+	// DONE: Add more API calls for different queries.
 	http.HandleFunc("/shortcode/", shortcodeHandler)
 	http.HandleFunc("/reload/", reloadHandler)
+	http.HandleFunc("/codes/", codesHandler)
 
 	// And begin.
 	_ = http.ListenAndServe(":8288", nil)
