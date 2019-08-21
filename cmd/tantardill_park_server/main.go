@@ -10,25 +10,47 @@ import (
 	"log"
 	"net"
 	"os"
+	"sort"
 )
 
 var Database map[string]portrpc.Port
 
 type ourClient struct{}
 
+// `PutPort` adds (or updates) a port object to our database.
 func (pdbs *ourClient) PutPort(ctx context.Context, port *portrpc.Port) (*portrpc.PutResponse, error) {
 	// TODO Put them into a real database, such as Postgres or even SQLite
 	Database[port.Shortcode] = *port
-	return &portrpc.PutResponse{Response: "yes"}, nil
+	return &portrpc.PutResponse{Response: "ok"}, nil
 
 }
 
+// `GetShortcodes` retrieves a sorted list of all the known shortcodes
 func (pdbs *ourClient) GetShortcodes(empty *portrpc.GetShortcodesRequest, stream portrpc.PortDatabase_GetShortcodesServer) error {
+	// Collect our shortcodes into a `[]string` before sending in order
+	// to sort them (which makes life easier.)
+	codes := []string{}
+	for code, _ := range Database {
+		codes = append(codes, code)
+	}
+
+	sort.Strings(codes)
+
+	// Now send out each code to the stream as a packed `Shortcode` RPC object.
+	for _, code := range codes {
+		shortcode := portrpc.Shortcode{Shortcode: code}
+		if err := stream.Send(&shortcode); err != nil {
+			return err
+		}
+	}
+
+	// All done, success is in you.
 	return nil
 }
 
+// `GetPortByShortcode` retrieves a single port by its shortcode (ie `ZARCB`)
+// Call as `http://server:port/shortcode/ZARCB`
 func (pdbs *ourClient) GetPortByShortcode(ctx context.Context, shortcode *portrpc.Shortcode) (*portrpc.Port, error) {
-	fmt.Printf("HELLO SOMEONE WANTED %s\n", shortcode.Shortcode)
 	if port, ok := Database[shortcode.Shortcode]; ok {
 		return &port, nil
 	} else {
