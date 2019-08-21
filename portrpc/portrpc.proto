@@ -7,6 +7,7 @@ package portrpc;
 service PortDatabase {
     rpc PutPort (Port) returns (PutResponse);
     rpc GetPortByShortcode (Shortcode) returns (Port);
+    rpc GetShortcodes (GetShortcodesRequest) returns (stream Shortcode);
 }
 
 message PutResponse {
@@ -15,6 +16,11 @@ message PutResponse {
 
 message Shortcode {
     string Shortcode = 1;
+}
+
+// "Make a new message that simply has no fields. That way you can
+// add new fields when you need to and not break any application code."
+message GetShortcodesRequest {
 }
 
 // Mildly cheated by using `go2proto` for this to start with.
