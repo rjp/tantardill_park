@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/rjp/ports/portrpc"
+	"bitbucket.org/rjp/tantardill_park/portrpc"
 	grpc "google.golang.org/grpc"
 )
 
 // Import our JSON from a file
 // TODO Pass the filename as a parameter.
 func importJSON(client portrpc.PortDatabaseClient) {
-	f, err := os.Open("ports.json")
+	f, err := os.Open("/ports/ports.json")
 	if err != nil {
 		panic(err)
 	}
