@@ -9,6 +9,7 @@ import (
 	"google.golang.org/grpc/reflection"
 	"log"
 	"net"
+	"os"
 )
 
 var Database map[string]portrpc.Port
@@ -32,10 +33,19 @@ func (pdbs *ourClient) GetPortByShortcode(ctx context.Context, shortcode *portrp
 }
 
 func main() {
+	// "III. Store config in the environment"
+	// This also helps running it in Docker since we can easily
+	// pass them when we're starting up a container.
+	tcpport := os.Getenv("PORTS_GRPC_PORT")
+	if tcpport == "" {
+		// Panic or default? Default is nicer for testing.
+		fmt.Println("Missing port, defaulting to 9387")
+		tcpport = "9387"
+	}
+
 	Database = make(map[string]portrpc.Port)
 
-	tcpport := 9387
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", tcpport))
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", tcpport))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
