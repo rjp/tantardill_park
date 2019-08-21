@@ -17,10 +17,14 @@ var Database map[string]portrpc.Port
 type ourClient struct{}
 
 func (pdbs *ourClient) PutPort(ctx context.Context, port *portrpc.Port) (*portrpc.PutResponse, error) {
-	fmt.Printf("%s\n", port.String())
+	// TODO Put them into a real database, such as Postgres or even SQLite
 	Database[port.Shortcode] = *port
 	return &portrpc.PutResponse{Response: "yes"}, nil
 
+}
+
+func (pdbs *ourClient) GetShortcodes(empty *portrpc.GetShortcodesRequest, stream portrpc.PortDatabase_GetShortcodesServer) error {
+	return nil
 }
 
 func (pdbs *ourClient) GetPortByShortcode(ctx context.Context, shortcode *portrpc.Shortcode) (*portrpc.Port, error) {
